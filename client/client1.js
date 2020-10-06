@@ -26,7 +26,7 @@ app.get('/sync', async (req, res) => {
     } catch (e) {
         res.json(e);
     }
-})
+});
 
 app.listen(4000, () => console.log('Server on http://localhost:4000') );
 
@@ -35,6 +35,10 @@ socket.on('connect', async () => {
     syncdb.register(socket, registerData)
 });
 
-socket.on('sync', (data) => {
-    console.log(data);
-})
+socket.on('sync', async (data) => {
+    const { name, document } = data;
+    const { idGlobal } = document;
+    const { collection } = collectionsWithName.find( obj => obj.name === name );
+    document.synced = true;
+    await collection.updateOne({ idGlobal }, document, {upsert: true, strict: false});
+});
