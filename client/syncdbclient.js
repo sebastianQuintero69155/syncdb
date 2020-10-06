@@ -10,7 +10,7 @@ const syncdb = {
         );
 
         const dataToUpdatePromises = collectionsWithName.map(
-            ({ collection }) => collection.find({ synced: false }).select('-synced -_id')
+            ({ collection }) => collection.find({ synced: false }).select('-synced')
         );
 
         const dataToSyncByCollections = await Promise.all(dataToSyncPromises);
