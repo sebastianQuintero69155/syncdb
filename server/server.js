@@ -7,8 +7,8 @@ const Test = require('./db/schemas/Test');
 const Other = require('./db/schemas/Other');
 
 const collectionsWithName = [
-    { collection: Test, name: 'test'},
-    { collection: Other, name: 'other'},
+    { collection: Test, name: 'test' },
+    { collection: Other, name: 'other' },
 ]
 
 const { connect } = require('./db/connect');
@@ -26,20 +26,26 @@ io.on('connection', (socket) => {
     socket.on('register', async (data) => {
         const { registerData, authInfo } = data;
         const { groupId, individualId } = registerData;
-        socket.join(groupId);
         const dataToSave = {
             socketId: socket.id,
             groupId,
             individualId,
         }
-        await Device.updateOne({ individualId: data.individualId }, dataToSave, {upsert: true});
+        socket.join(groupId);
+        await Device.updateOne({ individualId: data.individualId }, dataToSave, { upsert: true });
     });
 
     socket.on('sync', async (data) => {
         const { name, document, groupId } = data;
         const { idGlobal } = document;
-        const { collection } = collectionsWithName.find( obj => obj.name === name );
-        await collection.updateOne({ idGlobal }, document, {upsert: true, strict: false});
+        
+        io.in(groupId).clients((error, clients) => {
+            if (error) throw error;
+            return clients;
+        });
+
+        const { collection } = collectionsWithName.find(obj => obj.name === name);
+        await collection.updateOne({ idGlobal }, document, { upsert: true, strict: false });
         socket.to(groupId).emit('sync', { name, document });
     });
 });
