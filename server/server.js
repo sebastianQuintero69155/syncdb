@@ -32,20 +32,29 @@ io.on('connection', (socket) => {
             individualId,
         }
         socket.join(groupId);
-        await Device.updateOne({ individualId: data.individualId }, dataToSave, { upsert: true });
+        await Device.updateOne({ individualId }, dataToSave, { upsert: true, strict: false });
     });
 
     socket.on('sync', async (data) => {
         const { name, document, groupId } = data;
         const { idGlobal } = document;
         
-        io.in(groupId).clients((error, clients) => {
+        io.in(groupId).clients(async (error, socketClientsId) => {
             if (error) throw error;
-            return clients;
+            const allDevices = await Device.find({ groupId }).select('-_id individualId');
+            const clientsObj = await Device.find({ socketId: { "$in" : socketClientsId} }).select('-_id individualId');
+            const clients = clientsObj.map((obj) => obj.individualId );
+            const allSocketsIds = allDevices.map((device) => device.individualId );
+            const syncState = allSocketsIds.map((individualId) => {
+                return {
+                    individualId,
+                    synced: clients.includes(individualId),
+                }
+            });
+            socket.to(groupId).emit('sync', { name, document });
+            document.syncState = syncState;
+            const { collection } = collectionsWithName.find(obj => obj.name === name);
+            await collection.updateOne({ idGlobal }, document, { upsert: true, strict: false });
         });
-
-        const { collection } = collectionsWithName.find(obj => obj.name === name);
-        await collection.updateOne({ idGlobal }, document, { upsert: true, strict: false });
-        socket.to(groupId).emit('sync', { name, document });
     });
 });
