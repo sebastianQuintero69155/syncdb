@@ -9,6 +9,14 @@ const schemaTest = new Schema({
         type: Boolean,
         required: true,
     },
+    syncState: [{
+        individualId: {
+            type: String,
+        },
+        synced: {
+            type: Boolean,
+        }
+    }],
     data: {
         type: String,
     },
