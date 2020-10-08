@@ -32,7 +32,32 @@ io.on('connection', (socket) => {
             individualId,
         }
         socket.join(groupId);
+        
+        const syncState = {
+            individualId,
+            synced: false,
+        };
+
+        const noSyncState = {
+            individualId,
+            synced: true,
+        };
+
         await Device.updateOne({ individualId }, dataToSave, { upsert: true, strict: false });
+
+        const dataPending = collectionsWithName.map(
+            ({ collection }) => collection.find({ $or: [ { syncState }, { "syncState": { "$ne": noSyncState } } ]}).select('-_id -syncState')
+        );
+        const dataToSync = await Promise.all(dataPending);
+        const { socketId } = await Device.findOne({individualId}).select('-_id socketId');
+
+        dataToSync.forEach((arrayDataByCollection, index) => {
+            arrayDataByCollection.forEach((document) => {
+                const { name } = collectionsWithName[index]
+                io.to(socketId).emit('sync', { name, document });     
+            });
+        });
+
     });
 
     socket.on('sync', async (data) => {
@@ -53,6 +78,7 @@ io.on('connection', (socket) => {
             });
             socket.to(groupId).emit('sync', { name, document });
             document.syncState = syncState;
+            document.groupId = groupId;
             const { collection } = collectionsWithName.find(obj => obj.name === name);
             await collection.updateOne({ idGlobal }, document, { upsert: true, strict: false });
         });
